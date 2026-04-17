@@ -21,7 +21,7 @@ import java.util.UUID;
 public class OrderService {
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
-    public void placeOrder(OrderRequest orderRequest) {
+    public String placeOrder(OrderRequest orderRequest) {
         // Business logic to place an order will go here
 //        System.out.println(orderRequest.get);
         Order order = new Order();
@@ -50,6 +50,7 @@ public class OrderService {
         if(allProductsInStock)
         {
             orderRepository.save(order);
+            return "Order placed successfully";
         }
         else
         {
