@@ -3,10 +3,13 @@ package com.devms.order_service.service;
 import com.devms.order_service.dto.InventoryResponse;
 import com.devms.order_service.dto.OrderLineItemsDto;
 import com.devms.order_service.dto.OrderRequest;
+import com.devms.order_service.event.OrderPlacedEvent;
 import com.devms.order_service.model.Order;
 import com.devms.order_service.model.OrderLineItems;
 import com.devms.order_service.repository.OrderRepository;
+import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -21,6 +24,9 @@ import java.util.UUID;
 public class OrderService {
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
+    private final Tracer tracer;
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
+
     public String placeOrder(OrderRequest orderRequest) {
         // Business logic to place an order will go here
 //        System.out.println(orderRequest.get);
@@ -44,12 +50,15 @@ public class OrderService {
                 .bodyToMono(InventoryResponse[].class)
                 .block();
 
+        assert inventoryResponseArray != null;
         boolean allProductsInStock=Arrays.stream(inventoryResponseArray)
                 .allMatch(InventoryResponse::isInStock);
 
         if(allProductsInStock)
         {
             orderRepository.save(order);
+
+            kafkaTemplate.send("notificationTopic",new OrderPlacedEvent(order.getOrderNumber()));
             return "Order placed successfully";
         }
         else
